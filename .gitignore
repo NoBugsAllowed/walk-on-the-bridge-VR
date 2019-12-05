@@ -1,25 +1,26 @@
 # =============== #
 # Unity generated #
 # =============== #
-Temp/
-Obj/
-UnityGenerated/
-Library/
-Assets/AssetStoreTools*
+/VRModule/Temp/
+/VRModule/Obj/
+/VRModule/UnityGenerated/
+/VRModule/Library/
+/VRModule/Assets/AssetStoreTools*
 
 # ===================================== #
 # Visual Studio / MonoDevelop generated #
 # ===================================== #
-ExportedObj/
-*.svd
-*.userprefs
-*.csproj
-*.pidb
-*.suo
-*.sln
-*.user
-*.unityproj
-*.booproj
+/VRModule/.vs/
+/VRModule/ExportedObj/
+/VRModule/*.svd
+/VRModule/*.userprefs
+/VRModule/*.csproj
+/VRModule/*.pidb
+/VRModule/*.suo
+/VRModule/*.sln
+/VRModule/*.user
+/VRModule/*.unityproj
+/VRModule/*.booproj
 
 # ============ #
 # OS generated #
@@ -32,3 +33,30 @@ ExportedObj/
 Icon?
 ehthumbs.db
 Thumbs.db
+
+# =================================== #
+# Android Studio / IntelliJ generated #
+# =================================== #
+/MobileAppModule/*.iml
+/MobileAppModule/.gradle
+/MobileAppModule/local.properties
+/MobileAppModule/.externalNativeBuild
+/MobileAppModule/.idea/tasks.xml
+/MobileAppModule/.idea/.name
+/MobileAppModule/.idea/compiler.xml
+/MobileAppModule/.idea/copyright/profiles_settings.xml
+/MobileAppModule/.idea/encodings.xml
+/MobileAppModule/.idea/misc.xml
+/MobileAppModule/.idea/scopes/scope_settings.xml
+/MobileAppModule/.idea/vcs.xml
+/MobileAppModule/.idea/caches
+/MobileAppModule/.idea/libraries/
+/MobileAppModule/.idea/modules.xml
+/MobileAppModule/.idea/workspace.xml
+/MobileAppModule/.idea/navEditor.xml
+/MobileAppModule/.idea/assetWizardSettings.xml
+/MobileAppModule/.DS_Store
+/MobileAppModule/captures
+/MobileAppModule/build
+/MobileAppModule/app/build
+/MobileAppModule/openCVLibrary310/build/
