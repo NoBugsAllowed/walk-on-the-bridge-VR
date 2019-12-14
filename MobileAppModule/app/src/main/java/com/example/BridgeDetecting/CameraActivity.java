@@ -1,11 +1,13 @@
 package com.example.BridgeDetecting;
 
+import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.MotionEvent;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
@@ -18,9 +20,12 @@ import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.JavaCameraView;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 
@@ -32,7 +37,7 @@ import java.net.SocketTimeoutException;
 import java.util.List;
 import java.util.Random;
 
-public class CameraActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2{
+public class CameraActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2, View.OnTouchListener {
 
     //view holder
     CameraBridgeViewBase cameraBridgeViewBase;
@@ -41,7 +46,8 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
     BaseLoaderCallback baseLoaderCallback;
 
     //image holder
-    Mat img;
+    Mat mRgba;
+    private Scalar  mBlobColorHsv;
 
     ColorBlobDetector colorDetector;
     TextView offsetTextView;
@@ -77,13 +83,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
 
         //Remove notification bar
         this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-
         setContentView(R.layout.activity_camera);
-/*
-        this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        View decorView = this.getWindow().getDecorView();
-        int uiOptions = View.SYSTEM_UI_FLAG_LOW_PROFILE;
-        decorView.setSystemUiVisibility(uiOptions);*/
 
         cameraBridgeViewBase = (JavaCameraView) findViewById(R.id.cameraViewer);
         cameraBridgeViewBase.setVisibility(SurfaceView.VISIBLE);
@@ -97,6 +97,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
                     case LoaderCallbackInterface.SUCCESS:
                         Log.v("aashari-log", "Loader interface success");
                         cameraBridgeViewBase.enableView();
+                        cameraBridgeViewBase.setOnTouchListener(CameraActivity.this);
                         break;
                     default:
                         super.onManagerConnected(status);
@@ -135,6 +136,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
     public void onCameraViewStarted(int width, int height) {
         colorDetector = new ColorBlobDetector();
         colorDetector.setBounds(lowColor, highColor);
+        mRgba = new Mat(height, width, CvType.CV_8UC4);
     }
 
     @Override
@@ -144,12 +146,12 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
 
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        Mat src = inputFrame.rgba();
+        mRgba = inputFrame.rgba();
 
-        colorDetector.process(src);
+        colorDetector.process(mRgba);
         List<MatOfPoint> contours = colorDetector.getContours();
         Log.e("CAMERA_ACTIVITY", "Contours count: " + contours.size());
-        Imgproc.drawContours(src, contours, -1, CONTOUR_COLOR);
+        Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 10);
 
 //        if(tcpConnected) {
 //            mTcpClient.sendMessage("X");
@@ -184,7 +186,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         }
 
 
-        return src;
+        return mRgba;
     }
 
     @Override
@@ -290,6 +292,57 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         });
 
         thread.start();
+    }
+
+    public boolean onTouch(View v, MotionEvent event) {
+
+        int cols = mRgba.cols();
+        int rows = mRgba.rows();
+
+        int xOffset = (cameraBridgeViewBase.getWidth() - cols) / 2;
+        int yOffset = (cameraBridgeViewBase.getHeight() - rows) / 2;
+
+        int x = (int)event.getX() - xOffset;
+        int y = (int)event.getY() - yOffset;
+
+        Log.i("CameraTouch", "Touch image coordinates: (" + x + ", " + y + ")");
+
+        if ((x < 0) || (y < 0) || (x > cols) || (y > rows)) return false;
+
+        Rect touchedRect = new Rect();
+
+        touchedRect.x = (x>4) ? x-4 : 0;
+        touchedRect.y = (y>4) ? y-4 : 0;
+
+        touchedRect.width = (x+4 < cols) ? x + 4 - touchedRect.x : cols - touchedRect.x;
+        touchedRect.height = (y+4 < rows) ? y + 4 - touchedRect.y : rows - touchedRect.y;
+
+        Mat touchedRegionRgba = mRgba.submat(touchedRect);
+
+        Mat touchedRegionHsv = new Mat();
+        Imgproc.cvtColor(touchedRegionRgba, touchedRegionHsv, Imgproc.COLOR_RGB2HSV_FULL);
+
+        // Calculate average color of touched region
+        mBlobColorHsv = Core.sumElems(touchedRegionHsv);
+        int pointCount = touchedRect.width*touchedRect.height;
+        for (int i = 0; i < mBlobColorHsv.val.length; i++)
+            mBlobColorHsv.val[i] /= pointCount;
+
+       /* mBlobColorRgba = converScalarHsv2Rgba(mBlobColorHsv);
+
+        Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
+                ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
+*/
+        colorDetector.setHsvColor(mBlobColorHsv);
+
+      /*  Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE, 0, 0, Imgproc.INTER_LINEAR_EXACT);
+
+        mIsColorSelected = true;*/
+
+        touchedRegionRgba.release();
+        touchedRegionHsv.release();
+
+        return true; // don't need subsequent touch events
     }
 
     public class ConnectTask extends AsyncTask<String, String, TcpClient> {
