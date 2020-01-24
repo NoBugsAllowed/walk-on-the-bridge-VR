@@ -31,6 +31,6 @@ public class BridgeRotation : MonoBehaviour
 
     private float OffsetToAngle(double offset)
     {
-        return (float)(Offset * MAX_ANGLE);
+        return (float)(-Offset * MAX_ANGLE);
     }
 }
