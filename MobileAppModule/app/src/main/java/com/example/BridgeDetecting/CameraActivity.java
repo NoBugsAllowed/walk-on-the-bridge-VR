@@ -1,6 +1,7 @@
 package com.example.BridgeDetecting;
 
 import android.graphics.Color;
+import android.hardware.Camera;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -73,13 +74,13 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
     private static final int PORT = 9009;
     private static final int TIMEOUT = 3000;
     private Random mRandom = new Random();
+    private boolean appPaused = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        findVRModule();
-        //Remove title bar
-        //this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         //Remove notification bar
         this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -88,6 +89,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         cameraBridgeViewBase = (JavaCameraView) findViewById(R.id.cameraViewer);
         cameraBridgeViewBase.setVisibility(SurfaceView.VISIBLE);
         cameraBridgeViewBase.setCvCameraViewListener(this);
+        cameraBridgeViewBase.setMaxFrameSize(1280, 720);
 
         //create camera listener callback
         baseLoaderCallback = new BaseLoaderCallback(this) {
@@ -95,7 +97,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
             public void onManagerConnected(int status) {
                 switch (status) {
                     case LoaderCallbackInterface.SUCCESS:
-                        Log.v("aashari-log", "Loader interface success");
+                        Log.v("CameraActivity", "Loader interface success");
                         cameraBridgeViewBase.enableView();
                         cameraBridgeViewBase.setOnTouchListener(CameraActivity.this);
                         break;
@@ -146,16 +148,15 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
 
     @Override
     public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
+        long startTime = System.nanoTime();
+
+
         mRgba = inputFrame.rgba();
 
         colorDetector.process(mRgba);
         List<MatOfPoint> contours = colorDetector.getContours();
-        Log.e("CAMERA_ACTIVITY", "Contours count: " + contours.size());
-        Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 10);
 
-//        if(tcpConnected) {
-//            mTcpClient.sendMessage("X");
-//        }
+        Imgproc.drawContours(mRgba, contours, -1, CONTOUR_COLOR, 10);
 
         if(contours.size()>0)
         {
@@ -185,7 +186,9 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
             mTcpClient.sendDouble(0.0);
         }
 
-
+        long endTime = System.nanoTime();
+        long duration = (endTime - startTime)/1000000;
+        Log.e("CAMERA_ACTIVITY", "Processing time: " + duration);
         return mRgba;
     }
 
@@ -195,6 +198,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         if (cameraBridgeViewBase != null) {
             cameraBridgeViewBase.disableView();
         }
+        appPaused = true;
     }
 
     @Override
@@ -205,8 +209,17 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         } else {
             baseLoaderCallback.onManagerConnected(BaseLoaderCallback.SUCCESS);
         }
+        appPaused = false;
+        if(tcpConnected == false)
+        {
+            findVRModule();
+        }
     }
 
+    @Override
+    public void onStop() {
+        super.onStop();
+    }
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -239,55 +252,64 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
 
             @Override
             public void run() {
+                int tryNumber = 0;
                 DatagramSocket ds = null;
-                try {
-                    ds = new DatagramSocket();
+                while(vrModuleFound == false && appPaused == false)
+                {
+                    try {
+                        ds = new DatagramSocket();
 
-                    InetAddress serverAddr = InetAddress.getByName(BROADCAST_ADDRESS);
-                    DatagramPacket dp;
-                    dp = new DatagramPacket(MOBILE_APP_KEY.getBytes(), MOBILE_APP_KEY.length(), serverAddr, PORT);
-                    ds.send(dp);
+                        InetAddress serverAddr = InetAddress.getByName(BROADCAST_ADDRESS);
+                        DatagramPacket dp;
+                        dp = new DatagramPacket(MOBILE_APP_KEY.getBytes(), MOBILE_APP_KEY.length(), serverAddr, PORT);
+                        ds.send(dp);
 
-                    String receiveString;
-                    byte[] lMsg = new byte[1024];
-                    dp = new DatagramPacket(lMsg, lMsg.length);
-                    long startTime = System.currentTimeMillis();
-                    do {
-                        ds.setSoTimeout(TIMEOUT);
-                        ds.receive(dp);
-                        receiveString = new String(lMsg, 0, dp.getLength());
-                    } while(!receiveString.equals(VR_MODULE_KEY) && (System.currentTimeMillis() - startTime) < TIMEOUT);
-                    if((System.currentTimeMillis() - startTime) >= TIMEOUT) {
+                        String receiveString;
+                        byte[] lMsg = new byte[1024];
+                        dp = new DatagramPacket(lMsg, lMsg.length);
+                        long startTime = System.currentTimeMillis();
+                        do {
+                            ds.setSoTimeout(TIMEOUT);
+                            ds.receive(dp);
+                            receiveString = new String(lMsg, 0, dp.getLength());
+                        } while(!receiveString.equals(VR_MODULE_KEY) && (System.currentTimeMillis() - startTime) < TIMEOUT);
+                        if((System.currentTimeMillis() - startTime) >= TIMEOUT) {
 //                        throw new SocketTimeoutException();
+                        }
+                        vrModuleFound = true;
+                        vrModuleIP = ((InetAddress)dp.getAddress()).getHostAddress();
                     }
-                    vrModuleFound = true;
-                    vrModuleIP = ((InetAddress)dp.getAddress()).getHostAddress();
+                    catch (SocketTimeoutException e) {
+                        if(tryNumber%3 == 0) {
+                            runOnUiThread(new Runnable() {
+                                public void run() {
+                                    Toast.makeText(CameraActivity.this, "Couldn't find VR Module", Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    }
+                    catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    finally {
+                        if (ds != null) {
+                            ds.close();
+                        }
+                    }
+                    tryNumber++;
                 }
-                catch (SocketTimeoutException e) {
-                    runOnUiThread(new Runnable() {
+
+                if(vrModuleFound)
+                {
+                    handler.post(new Runnable() {
+                        @Override
                         public void run() {
-                            Toast.makeText(CameraActivity.this, "Couldn't find VR Module", Toast.LENGTH_SHORT).show();
+                                new ConnectTask(vrModuleIP, PORT).execute();
+                                Toast.makeText(CameraActivity.this, "Connected to VR module", Toast.LENGTH_SHORT).show();
+
                         }
                     });
                 }
-                catch (IOException e) {
-                    e.printStackTrace();
-                }
-                finally {
-                    if (ds != null) {
-                        ds.close();
-                    }
-                }
-
-                handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if(vrModuleFound) {
-                            new ConnectTask(vrModuleIP, PORT).execute();
-                            Toast.makeText(CameraActivity.this, "Connected to VR module", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                });
             }
         });
 
@@ -311,11 +333,13 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
 
         Rect touchedRect = new Rect();
 
-        touchedRect.x = (x>4) ? x-4 : 0;
-        touchedRect.y = (y>4) ? y-4 : 0;
+        int regionHeight = 2;
 
-        touchedRect.width = (x+4 < cols) ? x + 4 - touchedRect.x : cols - touchedRect.x;
-        touchedRect.height = (y+4 < rows) ? y + 4 - touchedRect.y : rows - touchedRect.y;
+        touchedRect.x = (x>regionHeight) ? x-regionHeight : 0;
+        touchedRect.y = (y>regionHeight) ? y-regionHeight : 0;
+
+        touchedRect.width = (x+regionHeight < cols) ? x + regionHeight - touchedRect.x : cols - touchedRect.x;
+        touchedRect.height = (y+regionHeight < rows) ? y + regionHeight - touchedRect.y : rows - touchedRect.y;
 
         Mat touchedRegionRgba = mRgba.submat(touchedRect);
 
@@ -328,16 +352,7 @@ public class CameraActivity extends AppCompatActivity implements CameraBridgeVie
         for (int i = 0; i < mBlobColorHsv.val.length; i++)
             mBlobColorHsv.val[i] /= pointCount;
 
-       /* mBlobColorRgba = converScalarHsv2Rgba(mBlobColorHsv);
-
-        Log.i(TAG, "Touched rgba color: (" + mBlobColorRgba.val[0] + ", " + mBlobColorRgba.val[1] +
-                ", " + mBlobColorRgba.val[2] + ", " + mBlobColorRgba.val[3] + ")");
-*/
         colorDetector.setHsvColor(mBlobColorHsv);
-
-      /*  Imgproc.resize(mDetector.getSpectrum(), mSpectrum, SPECTRUM_SIZE, 0, 0, Imgproc.INTER_LINEAR_EXACT);
-
-        mIsColorSelected = true;*/
 
         touchedRegionRgba.release();
         touchedRegionHsv.release();
