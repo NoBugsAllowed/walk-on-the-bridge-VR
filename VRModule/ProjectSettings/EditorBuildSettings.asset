@@ -11,3 +11,6 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Main.unity
     guid: 99d6ffc22c1ade042844754d3d7f08ee
+  - enabled: 1
+    path: Assets/Volcanoo.unity
+    guid: a13ae8ff21dab454696a070860aee143

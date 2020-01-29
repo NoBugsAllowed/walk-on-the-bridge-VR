@@ -215,7 +215,13 @@ public class OVRPlayerController : MonoBehaviour
         {
             OVRManager.display.RecenterPose();
         }
-	}
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            Debug.Log("Exit");
+            Application.Quit();
+        }
+    }
 
 	protected virtual void UpdateController()
 	{
