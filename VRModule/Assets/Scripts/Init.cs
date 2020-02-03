@@ -6,14 +6,26 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEngine;
+using UnityEngine.UI;
+using BridgeVR;
 
 public class Init : MonoBehaviour
 {
     private const string MOBILE_APP_KEY = "WALK-ON-THE-BRIDGE-MOBILE";
     private const string VR_MODULE_KEY = "WALK-ON-THE-BRIDGE-VR";
     private const int PORT = 9009;
-    private BridgeRotation bridgeScript;
     private IPEndPoint broadcastAddr;
+    private Button startButton;
+    // To use lock()
+    private class Boolean
+    {
+        public bool value;
+        public Boolean(bool v)
+        {
+            value = v;
+        }
+    }
+    private Boolean startEnabled;
     private struct UdpState
     {
         public UdpClient client;
@@ -27,9 +39,9 @@ public class Init : MonoBehaviour
 
     void Start()
     {
-        //Get Bridge object
-        GameObject bridge = GameObject.Find("StaticBridge");
-        bridgeScript = bridge.GetComponent<BridgeRotation>();
+        startButton = GameObject.Find("BtnStart").GetComponent<Button>();
+        startButton.interactable = false;
+        startEnabled = new Boolean(false); 
 
         // Start TCP listener
         IPAddress localAddr = IPAddress.Any;
@@ -47,6 +59,17 @@ public class Init : MonoBehaviour
         client.Client.Bind(broadcastAddr);
         Debug.Log("Waiting for mobile app");
         client.BeginReceive(UdpMessageReceiveCallback, s);
+    }
+
+    private void Update()
+    {
+        lock(startEnabled)
+        {
+            if (startButton.IsInteractable() != startEnabled.value)
+            {
+                startButton.interactable = startEnabled.value;
+            }
+        }
     }
 
     private void UdpMessageReceiveCallback(IAsyncResult ar)
@@ -97,6 +120,12 @@ public class Init : MonoBehaviour
         TcpListener listener = (TcpListener)ar.AsyncState;
         TcpClient mobileApp = listener.EndAcceptTcpClient(ar);
 
+        // Enable start button
+        lock(startEnabled)
+        {
+            startEnabled.value = true;
+        }
+
         byte[] bytes = new byte[sizeof(double)];
         using (NetworkStream stream = mobileApp.GetStream())
         {
@@ -106,7 +135,7 @@ public class Init : MonoBehaviour
             {
                 Array.Reverse(bytes, 0, bytes.Length);
                 double offset = BitConverter.ToDouble(bytes, 0);
-                bridgeScript.Offset = offset;
+                Bridge.Offset = offset;
                 Debug.Log("Server message received as: " + offset.ToString());
             }
         }

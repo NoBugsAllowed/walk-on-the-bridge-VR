@@ -1,18 +1,16 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using BridgeVR;
 
 public class BridgeRotation : MonoBehaviour
 {
     private const float MAX_ANGLE = 10.0f;
     private const float ROTATION_POINT_Y_OFFSET = 8.0f;
     private const float ROTATION_POINT_Z_OFFSET = 4.0f;
-    private float angle = 0;
     private Vector3 rotateAroundPoint;
     private Vector3 initialPosition;
     private Quaternion initialRotation;
-
-    public double Offset { get; set; }
 
     void Start()
     {
@@ -26,11 +24,11 @@ public class BridgeRotation : MonoBehaviour
         // Update bridge rotation
         transform.position = initialPosition;
         transform.rotation = initialRotation;
-        transform.RotateAround(rotateAroundPoint, Vector3.right, OffsetToAngle(Offset));
+        transform.RotateAround(rotateAroundPoint, Vector3.right, OffsetToAngle(Bridge.Offset));
     }
 
     private float OffsetToAngle(double offset)
     {
-        return (float)(-Offset * MAX_ANGLE);
+        return (float)(-offset * MAX_ANGLE);
     }
 }
