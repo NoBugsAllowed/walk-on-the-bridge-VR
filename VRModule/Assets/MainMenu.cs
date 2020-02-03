@@ -49,7 +49,7 @@ public class MainMenu : MonoBehaviour {
         // Using menu with keyboard
         if (menuNum == 1) // Main screen
         {
-            if (Input.GetKeyDown(KeyCode.Alpha1))
+            if (Input.GetKeyDown(KeyCode.Alpha1) && btnStart.IsInteractable())
             {
                 btnStart.onClick.Invoke();
             }
