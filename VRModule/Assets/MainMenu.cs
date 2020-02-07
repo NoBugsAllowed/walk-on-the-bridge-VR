@@ -33,10 +33,12 @@ public class MainMenu : MonoBehaviour {
         switch(menuNum)
         {
             case 1:
+                Debug.Log("Menu 1");
                 btnStart = GameObject.Find("BtnStart").GetComponent<Button>();
                 btnExit = GameObject.Find("BtnExit").GetComponent<Button>();
                 break;
             case 2:
+                Debug.Log("Menu 2");
                 btnRunMain = GameObject.Find("BtnRunMain").GetComponent<Button>();
                 btnRunVolcano = GameObject.Find("BtnRunVolcano").GetComponent<Button>();
                 btnBack = GameObject.Find("BtnBack").GetComponent<Button>();
@@ -55,6 +57,7 @@ public class MainMenu : MonoBehaviour {
             }
             if (Input.GetKeyDown(KeyCode.Alpha2))
             {
+                Debug.Log("2");
                 btnExit.onClick.Invoke();
             }
         }
